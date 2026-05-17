@@ -485,9 +485,21 @@
                 
                 let tx;
                 if (conf.isFreeToPlay) {
-                    // BASE MAINNET : On interagit avec le contrat BaseArcade pour l'airdrop !
+                    // BASE MAINNET : On prépare la transaction avec ton Builder Code
                     const arcadeContract = new ethers.Contract(conf.actionContract, baseArcadeABI, signer);
-                    tx = await arcadeContract.claimFreeCredits();
+                    const builderSuffix = "0x62635f30303361366d736d0b0080218021802180218021802180218021";
+                    
+                    // 1. On prépare la transaction classique
+                    const txData = arcadeContract.interface.encodeFunctionData("claimFreeCredits");
+                    
+                    // 2. On colle ton Builder Code à la fin
+                    const finalData = txData + builderSuffix.substring(2);
+                    
+                    // 3. On envoie la transaction signée
+                    tx = await signer.sendTransaction({
+                        to: conf.actionContract,
+                        data: finalData
+                    });
                 } else {
                     // ARC TESTNET : On paie 1.0 USDC au contrat de Swap
                     tx = await signer.sendTransaction({ 
@@ -526,7 +538,20 @@
                 const signer = await provider.getSigner();
                 const nftContract = new ethers.Contract(conf.nftContract, nftABI, signer);
                 
-                const tx = await nftContract.mint(userAddress); 
+                const builderSuffix = "0x62635f30303361366d736d0b0080218021802180218021802180218021";
+                
+                // 1. On prépare la demande de Mint
+                const txData = nftContract.interface.encodeFunctionData("mint", [userAddress]);
+                
+                // 2. On attache ton Builder Code
+                const finalData = txData + builderSuffix.substring(2);
+                
+                // 3. On envoie le tout
+                const tx = await signer.sendTransaction({
+                    to: conf.nftContract,
+                    data: finalData
+                });
+                
                 statusMsg.innerText = `⏳ Minting on ${conf.name}...`;
                 await tx.wait();
                 
