@@ -4,14 +4,14 @@
     <meta name="google-site-verification" content="8KB32OAAzoOc5tCH__grQa7csXvYG8LvBoYBl9KFW6M" />
     <meta name="base:app_id" content="6953c9fa4d3a403912ed8641" />
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ARC Web3 Ecosystem</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700&family=DM+Mono&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
-        body { background-color: #0F172A; color: #F1F5F9; font-family: 'Syne', sans-serif; overflow-x: hidden; }
+        body { background-color: #0F172A; color: #F1F5F9; font-family: 'Syne', sans-serif; overflow-x: hidden; touch-action: manipulation; }
         .mono { font-family: 'DM Mono', monospace; }
         .glass-panel { background: #1E293B; border: 1px solid #334155; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); }
         
@@ -79,8 +79,14 @@
                 <div id="game-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/60 rounded-xl">
                     <p class="text-white font-bold mb-2 text-lg drop-shadow-md">Ready for takeoff?</p>
                     <p class="text-slate-300 text-xs mono mb-4">Insert 1 🪙 to start</p>
-                    <p class="text-sky-400 text-[10px] mono uppercase tracking-tighter">⬅️ ➡️ Move | SPACE Shoot</p>
+                    <p class="text-sky-400 text-[10px] mono uppercase tracking-tighter">⬅️ ➡️ Move | SPACE / 🔥 Shoot</p>
                 </div>
+            </div>
+
+            <div id="mobile-controls" class="sm:hidden flex justify-between gap-2 mb-4 w-full">
+                <button id="btn-left" class="bg-slate-700 hover:bg-slate-600 text-white p-3 rounded-xl flex-1 text-2xl active:bg-sky-500 transition select-none touch-manipulation">⬅️</button>
+                <button id="btn-shoot" class="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-xl flex-1 text-2xl active:bg-indigo-400 transition shadow-lg shadow-indigo-500/30 select-none touch-manipulation">🔥</button>
+                <button id="btn-right" class="bg-slate-700 hover:bg-slate-600 text-white p-3 rounded-xl flex-1 text-2xl active:bg-sky-500 transition select-none touch-manipulation">➡️</button>
             </div>
 
             <button id="connect-btn" class="w-full bg-slate-800 hover:bg-slate-700 border border-indigo-500 text-white font-bold py-4 px-4 rounded-xl transition flex items-center justify-center gap-2 mb-4 shadow-lg shadow-indigo-500/20">
@@ -175,8 +181,8 @@
                 name: 'Base Mainnet',
                 currency: 'ETH',
                 depositAmount: "0", 
-                nftContract: "0xfD1e87A1fc200b034cfD88F254B8b267f7B8F018", // Contrat ARC Legendary sur Base
-                actionContract: "0x1e970b9f120b539c2ED9A6e16729b54BebAFb977", // Contrat Check-in (Airdrop) sur Base
+                nftContract: "0xfD1e87A1fc200b034cfD88F254B8b267f7B8F018", 
+                actionContract: "0x1e970b9f120b539c2ED9A6e16729b54BebAFb977", 
                 swapFunction: null,
                 isMainnet: true,
                 hasSwap: false,         
@@ -236,7 +242,6 @@
             "function swapNFTForUSDC(uint256 tokenId) external"
         ];
 
-        // L'ABI du contrat BaseArcade (pour l'airdrop)
         const baseArcadeABI = [
             "function claimFreeCredits() public"
         ];
@@ -342,6 +347,24 @@
             if(e.code === 'ArrowRight') keys.ArrowRight = false;
             if(e.code === 'Space') keys.Space = false;
         });
+
+        // === GESTION DES BOUTONS TACTILES (MOBILE) ===
+        const btnLeft = document.getElementById('btn-left');
+        const btnRight = document.getElementById('btn-right');
+        const btnShoot = document.getElementById('btn-shoot');
+
+        const setupTouchControl = (btn, keyName) => {
+            if (!btn) return;
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyName] = true; });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; });
+            btn.addEventListener('mousedown', (e) => { e.preventDefault(); keys[keyName] = true; });
+            btn.addEventListener('mouseup', (e) => { e.preventDefault(); keys[keyName] = false; });
+            btn.addEventListener('mouseleave', (e) => { e.preventDefault(); keys[keyName] = false; });
+        };
+
+        setupTouchControl(btnLeft, 'ArrowLeft');
+        setupTouchControl(btnRight, 'ArrowRight');
+        setupTouchControl(btnShoot, 'Space');
 
         function initGame() {
             gameScore = 0; player.x = 135; player.y = 280; player.targetY = 280; 
@@ -486,23 +509,15 @@
                 
                 let tx;
                 if (conf.isFreeToPlay) {
-                    // BASE MAINNET : On prépare la transaction avec ton Builder Code
                     const arcadeContract = new ethers.Contract(conf.actionContract, baseArcadeABI, signer);
                     const builderSuffix = "0x62635f30303361366d736d0b0080218021802180218021802180218021";
-                    
-                    // 1. On prépare la transaction classique
                     const txData = arcadeContract.interface.encodeFunctionData("claimFreeCredits");
-                    
-                    // 2. On colle ton Builder Code à la fin
                     const finalData = txData + builderSuffix.substring(2);
-                    
-                    // 3. On envoie la transaction signée
                     tx = await signer.sendTransaction({
                         to: conf.actionContract,
                         data: finalData
                     });
                 } else {
-                    // ARC TESTNET : On paie 1.0 USDC au contrat de Swap
                     tx = await signer.sendTransaction({ 
                         to: conf.actionContract, 
                         value: ethers.parseEther(conf.depositAmount) 
@@ -540,14 +555,9 @@
                 const nftContract = new ethers.Contract(conf.nftContract, nftABI, signer);
                 
                 const builderSuffix = "0x62635f30303361366d736d0b0080218021802180218021802180218021";
-                
-                // 1. On prépare la demande de Mint
                 const txData = nftContract.interface.encodeFunctionData("mint", [userAddress]);
-                
-                // 2. On attache ton Builder Code
                 const finalData = txData + builderSuffix.substring(2);
                 
-                // 3. On envoie le tout
                 const tx = await signer.sendTransaction({
                     to: conf.nftContract,
                     data: finalData
