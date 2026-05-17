@@ -690,14 +690,21 @@
         });
 
         // ==============================================
-        // AUTO-RECONNEXION AU CHARGEMENT DE LA PAGE
+        // AUTO-RECONNEXION & INITIALISATION
         // ==============================================
-        window.addEventListener('load', async () => {
+        async function autoConnectMetaMask() {
+            // On affiche le solde sauvegardé même si le wallet n'est pas encore prêt
+            if (credits > 0) {
+                balanceContainer.classList.remove('hidden');
+                creditDisplay.innerText = credits;
+            }
+
             if (typeof window.ethereum !== 'undefined') {
                 try {
-                    // Demande silencieuse pour voir si un compte est déjà autorisé
+                    // Demande silencieuse des comptes autorisés
                     const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-                    if (accounts.length > 0) {
+                    
+                    if (accounts && accounts.length > 0) {
                         userAddress = accounts[0];
                         connectBtn.innerText = "🟢 " + userAddress.substring(0, 6) + "...";
                         connectBtn.classList.replace('bg-slate-800', 'bg-emerald-900/50');
@@ -711,10 +718,13 @@
                         }
                     }
                 } catch (e) {
-                    console.log("Aucune connexion précédente trouvée.");
+                    console.log("Erreur de reconnexion silencieuse :", e);
                 }
             }
-        });
+        }
+
+        // On lance la fonction après une demi-seconde pour être sûr que MetaMask est bien réveillé
+        setTimeout(autoConnectMetaMask, 500);
     </script>
 </body>
 </html>
