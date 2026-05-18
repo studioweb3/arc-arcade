@@ -127,10 +127,10 @@
 
     <div id="view-swap" class="hidden w-full flex justify-center px-4">
         <div class="glass-panel p-8 rounded-3xl w-full max-w-lg text-center relative overflow-hidden">
-            <h2 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400 mb-2">🔄 DEX Swap</h2>
+            <h2 id="swap-title" class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400 mb-2">🔄 DEX Swap</h2>
             <p class="mono text-xs text-slate-400 mb-8 tracking-widest uppercase">Instant Liquidity</p>
 
-            <p class="text-slate-300 mb-6 text-sm">Instantly swap your "ARC Mega Winner" NFT for <span id="swap-desc-curr">USDC</span> directly to your wallet.</p>
+            <p id="swap-desc" class="text-slate-300 mb-6 text-sm">Instantly swap your "ARC Mega Winner" NFT for <span id="swap-desc-curr">USDC</span> directly to your wallet.</p>
             
             <div class="bg-slate-900 border border-slate-700 rounded-xl p-6 mb-6 flex justify-between items-center relative shadow-inner">
                 <div class="text-left w-1/3">
@@ -188,7 +188,7 @@
                 actionContract: "0x1e970b9f120b539c2ED9A6e16729b54BebAFb977", 
                 swapFunction: null,
                 isMainnet: true,
-                hasSwap: false,         
+                hasSwap: true,  // Activation de l'onglet Swap pour la fonction Burn sur Base
                 isFreeToPlay: true      
             }
         };
@@ -209,6 +209,8 @@
         const networkSelector = document.getElementById('network-selector');
 
         const netSubtitle = document.getElementById('network-subtitle');
+        const swapTitle = document.getElementById('swap-title');
+        const swapDesc = document.getElementById('swap-desc');
         const swapDescCurr = document.getElementById('swap-desc-curr');
         const swapReceiveVal = document.getElementById('swap-receive-val');
         const swapReceiveCurr = document.getElementById('swap-receive-curr');
@@ -240,7 +242,8 @@
             "function balanceOf(address owner) view returns (uint256)",
             "function ownerOf(uint256 tokenId) view returns (address)", 
             "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
-            "function approve(address to, uint256 tokenId) public"
+            "function approve(address to, uint256 tokenId) public",
+            "function transferFrom(address from, address to, uint256 tokenId) public" // Ajout de transferFrom pour le Burn
         ];
 
         const swapABI = [
@@ -258,9 +261,27 @@
             
             if (conf.hasSwap) {
                 navs.swap.classList.remove('hidden');
-                swapDescCurr.innerText = conf.currency;
-                swapReceiveVal.innerText = conf.depositAmount;
-                swapReceiveCurr.innerText = conf.currency;
+                
+                // Adaptation dynamique de l'interface SWAP vs BURN
+                if (conf.isMainnet) {
+                    swapTitle.innerHTML = '🔥 Burn NFT';
+                    swapTitle.className = 'text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-400 mb-2';
+                    swapDesc.innerHTML = 'Permanently destroy your "ARC Mega Winner" NFT. (Gas fee only)';
+                    swapReceiveVal.innerText = "0";
+                    swapReceiveCurr.innerText = conf.currency;
+                    
+                    executeSwapBtn.innerText = "Burn NFT";
+                    executeSwapBtn.className = "w-full bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-400 hover:to-orange-500 text-white font-bold py-4 px-4 rounded-xl transition shadow-lg shadow-red-500/30 text-lg uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed";
+                } else {
+                    swapTitle.innerHTML = '🔄 DEX Swap';
+                    swapTitle.className = 'text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400 mb-2';
+                    swapDesc.innerHTML = `Instantly swap your "ARC Mega Winner" NFT for ${conf.currency} directly to your wallet.`;
+                    swapReceiveVal.innerText = conf.depositAmount;
+                    swapReceiveCurr.innerText = conf.currency;
+                    
+                    executeSwapBtn.innerText = "Approve & Swap";
+                    executeSwapBtn.className = "w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold py-4 px-4 rounded-xl transition shadow-lg shadow-emerald-500/30 text-lg uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed";
+                }
             } else {
                 navs.swap.classList.add('hidden');
                 if (!views.swap.classList.contains('hidden')) {
@@ -624,7 +645,7 @@
         }
 
         // ==============================================
-        // SWAP LOGIC DYNAMIQUE
+        // SWAP & BURN LOGIC DYNAMIQUE
         // ==============================================
         executeSwapBtn.addEventListener('click', async () => {
             const conf = networks[currentNetworkKey];
@@ -643,14 +664,13 @@
                 const signer = await provider.getSigner();
                 
                 const nftContract = new ethers.Contract(conf.nftContract, nftABI, signer);
-                const swapContract = new ethers.Contract(conf.actionContract, swapABI, signer);
                 
                 swapStatus.innerText = "⏳ Step 1: Checking your inventory...";
                 
                 const balance = await nftContract.balanceOf(userAddress);
                 if (Number(balance) === 0) {
                     swapStatus.style.color = "#EF4444";
-                    swapStatus.innerText = "❌ You do not own any NFTs to swap.";
+                    swapStatus.innerText = "❌ You do not own any NFTs.";
                     executeSwapBtn.disabled = false;
                     return;
                 }
@@ -658,31 +678,48 @@
                 swapStatus.innerText = "⏳ Searching for NFT ID...";
                 const tokenIdToSwap = await nftContract.tokenOfOwnerByIndex(userAddress, 0);
 
-                swapStatus.innerText = `⏳ Step 2: Authorizing NFT #${tokenIdToSwap} (1/2)...`;
-                const txApprove = await nftContract.approve(conf.actionContract, tokenIdToSwap);
-                await txApprove.wait(); 
+                if (conf.isMainnet) {
+                    // LOGIQUE BURN (BASE MAINNET)
+                    swapStatus.innerText = `⏳ Executing Burn for NFT #${tokenIdToSwap}...`;
+                    const deadAddress = "0x000000000000000000000000000000000000dEaD";
+                    const txBurn = await nftContract.transferFrom(userAddress, deadAddress, tokenIdToSwap);
+                    
+                    swapStatus.innerText = `⏳ Burning on ${conf.name}...`;
+                    await txBurn.wait(); 
 
-                swapStatus.innerText = `⏳ Step 3: Executing Swap for NFT #${tokenIdToSwap} (2/2)...`;
-                const txSwap = await swapContract.swapNFTForUSDC(tokenIdToSwap);
-                
-                swapStatus.innerText = `⏳ Processing on ${conf.name}...`;
-                await txSwap.wait(); 
+                    swapStatus.style.color = "#10B981";
+                    swapStatus.innerText = `✅ NFT Burned successfully!`;
+                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#EF4444', '#F97316'] });
 
-                swapStatus.style.color = "#10B981";
-                swapStatus.innerText = `✅ Swap successful! ${conf.depositAmount} ${conf.currency} has been sent to your wallet.`;
-                
-                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#10B981', '#34D399'] });
+                } else {
+                    // LOGIQUE SWAP USDC (ARC TESTNET)
+                    const swapContract = new ethers.Contract(conf.actionContract, swapABI, signer);
+                    
+                    swapStatus.innerText = `⏳ Step 2: Authorizing NFT #${tokenIdToSwap} (1/2)...`;
+                    const txApprove = await nftContract.approve(conf.actionContract, tokenIdToSwap);
+                    await txApprove.wait(); 
+
+                    swapStatus.innerText = `⏳ Step 3: Executing Swap for NFT #${tokenIdToSwap} (2/2)...`;
+                    const txSwap = await swapContract.swapNFTForUSDC(tokenIdToSwap);
+                    
+                    swapStatus.innerText = `⏳ Processing on ${conf.name}...`;
+                    await txSwap.wait(); 
+
+                    swapStatus.style.color = "#10B981";
+                    swapStatus.innerText = `✅ Swap successful! ${conf.depositAmount} ${conf.currency} has been sent to your wallet.`;
+                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#10B981', '#34D399'] });
+                }
                 
                 loadDashboard();
 
             } catch(e) {
-                console.error("Detailed Swap error:", e);
+                console.error("Detailed error:", e);
                 swapStatus.style.color = "#EF4444";
                 
                 if (e.code === "ACTION_REJECTED") {
                     swapStatus.innerText = "❌ Transaction rejected in MetaMask.";
                 } else {
-                    swapStatus.innerText = "❌ Swap failed. Check the console (F12).";
+                    swapStatus.innerText = "❌ Transaction failed. Check the console (F12).";
                 }
             } finally {
                 executeSwapBtn.disabled = false;
