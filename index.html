@@ -233,6 +233,18 @@
 
         let userAddress = null;
 
+        // === DÉTECTION INTELLIGENTE DE L'ENVIRONNEMENT BASE ===
+        if (typeof window.ethereum !== 'undefined') {
+            // Si le joueur est sur le Coinbase Wallet ou si son portefeuille est déjà réglé sur le réseau Base
+            if (window.ethereum.isCoinbaseWallet || window.ethereum.chainId === '0x2105' || window.ethereum.chainId === '8453') {
+                currentNetworkKey = 'base';
+            }
+        }
+        
+        // Mise à jour visuelle du menu déroulant
+        networkSelector.value = currentNetworkKey;
+
+
         // === GESTION DYNAMIQUE DES CRÉDITS PAR RÉSEAU ===
         let credits = 0;
 
@@ -244,7 +256,7 @@
             localStorage.setItem(`arc_credits_${currentNetworkKey}`, credits);
         }
 
-        // Chargement initial des crédits pour le réseau par défaut (arc)
+        // Chargement initial des crédits pour le réseau détecté
         loadCredits();
 
         // ABIs combinées
@@ -750,6 +762,7 @@
         // AUTO-RECONNEXION & INITIALISATION
         // ==============================================
         async function autoConnectMetaMask() {
+            // On affiche le solde sauvegardé même si le wallet n'est pas encore prêt
             if (credits > 0) {
                 balanceContainer.classList.remove('hidden');
                 creditDisplay.innerText = credits;
@@ -757,6 +770,7 @@
 
             if (typeof window.ethereum !== 'undefined') {
                 try {
+                    // Demande silencieuse des comptes autorisés
                     const accounts = await window.ethereum.request({ method: 'eth_accounts' });
                     
                     if (accounts && accounts.length > 0) {
@@ -767,6 +781,7 @@
                         
                         updateUI(); 
                         
+                        // Si le joueur est sur l'onglet Dashboard, on charge ses NFTs
                         if (!views.dashboard.classList.contains('hidden')) {
                             loadDashboard();
                         }
@@ -777,6 +792,7 @@
             }
         }
 
+        // On lance la fonction après une demi-seconde pour être sûr que MetaMask est bien réveillé
         setTimeout(autoConnectMetaMask, 500);
     </script>
 </body>
