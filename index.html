@@ -188,7 +188,7 @@
                 actionContract: "0x1e970b9f120b539c2ED9A6e16729b54BebAFb977", 
                 swapFunction: null,
                 isMainnet: true,
-                hasSwap: true,  // Activation de l'onglet Swap pour la fonction Burn sur Base
+                hasSwap: true,  
                 isFreeToPlay: true      
             }
         };
@@ -233,8 +233,19 @@
 
         let userAddress = null;
 
-        // RECUPERATION DES CREDITS SAUVEGARDÉS (ou 0 par défaut)
-        let credits = parseInt(localStorage.getItem('arc_credits')) || 0; 
+        // === GESTION DYNAMIQUE DES CRÉDITS PAR RÉSEAU ===
+        let credits = 0;
+
+        function loadCredits() {
+            credits = parseInt(localStorage.getItem(`arc_credits_${currentNetworkKey}`)) || 0;
+        }
+
+        function saveCredits() {
+            localStorage.setItem(`arc_credits_${currentNetworkKey}`, credits);
+        }
+
+        // Chargement initial des crédits pour le réseau par défaut (arc)
+        loadCredits();
 
         // ABIs combinées
         const nftABI = [
@@ -243,7 +254,7 @@
             "function ownerOf(uint256 tokenId) view returns (address)", 
             "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
             "function approve(address to, uint256 tokenId) public",
-            "function transferFrom(address from, address to, uint256 tokenId) public" // Ajout de transferFrom pour le Burn
+            "function transferFrom(address from, address to, uint256 tokenId) public" 
         ];
 
         const swapABI = [
@@ -313,8 +324,17 @@
         }
 
         networkSelector.addEventListener('change', async (e) => {
+            // On sauvegarde l'ancien réseau avant de basculer
+            saveCredits(); 
+            
             currentNetworkKey = e.target.value;
+            
+            // On charge les crédits du nouveau réseau
+            loadCredits(); 
+            
             updateNetworkUI();
+            updateUI(); 
+            
             await switchMetaMaskNetwork();
             if(!views.dashboard.classList.contains('hidden')) loadDashboard();
         });
@@ -482,8 +502,8 @@
 
         // === WEB3 FUNCTIONS ===
         function updateUI() {
-            // SAUVEGARDE LOCALE A CHAQUE MISE A JOUR
-            localStorage.setItem('arc_credits', credits);
+            // SAUVEGARDE LOCALE DYNAMIQUE
+            saveCredits();
             
             creditDisplay.innerText = credits;
             if (userAddress) actionButtons.classList.remove('hidden'); actionButtons.classList.add('flex');
@@ -730,7 +750,6 @@
         // AUTO-RECONNEXION & INITIALISATION
         // ==============================================
         async function autoConnectMetaMask() {
-            // On affiche le solde sauvegardé même si le wallet n'est pas encore prêt
             if (credits > 0) {
                 balanceContainer.classList.remove('hidden');
                 creditDisplay.innerText = credits;
@@ -738,7 +757,6 @@
 
             if (typeof window.ethereum !== 'undefined') {
                 try {
-                    // Demande silencieuse des comptes autorisés
                     const accounts = await window.ethereum.request({ method: 'eth_accounts' });
                     
                     if (accounts && accounts.length > 0) {
@@ -749,7 +767,6 @@
                         
                         updateUI(); 
                         
-                        // Si le joueur est sur l'onglet Dashboard, on charge ses NFTs
                         if (!views.dashboard.classList.contains('hidden')) {
                             loadDashboard();
                         }
@@ -760,7 +777,6 @@
             }
         }
 
-        // On lance la fonction après une demi-seconde pour être sûr que MetaMask est bien réveillé
         setTimeout(autoConnectMetaMask, 500);
     </script>
 </body>
