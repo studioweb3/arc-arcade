@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="google-site-verification" content="8KB32OAAzoOc5tCH__grQa7csXvYG8LvBoYBl9KFW6M" />
+    <meta name="base:app_id" content="6953c9fa4d3a403912ed8641" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ARC Web3 Ecosystem</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700&family=DM+Mono&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body { background-color: #0F172A; color: #F1F5F9; font-family: 'Syne', sans-serif; overflow-x: hidden; touch-action: manipulation; }
+        .mono { font-family: 'DM Mono', monospace; }
+        .glass-panel { background: #1E293B; border: 1px solid #334155; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); }
+        
+        #gameCanvas {
+            background: #020617; 
+            border: 2px solid #38BDF8;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.9), 0 0 20px rgba(56, 189, 248, 0.2);
+            border-radius: 12px;
+            display: block;
+            margin: 0 auto;
+        }
+
+        @keyframes sweep {
+            0% { left: -100%; }
+            100% { left: 200%; }
+        }
+        .holo-sweep {
+            background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.4), transparent);
+            animation: sweep 2.5s infinite linear;
+        }
+
+        .nft-item { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .nft-item:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(56, 189, 248, 0.3); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-start pt-36 md:pt-24 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 relative pb-10">
+
+    <nav class="absolute top-0 left-0 w-full p-4 md:p-6 flex flex-col md:flex-row justify-between items-center z-40 bg-slate-900/50 backdrop-blur-md border-b border-slate-800 gap-3 md:gap-0">
+        <div class="text-xl md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-400 flex items-center gap-2">
+            🚀 ARC Network
+        </div>
+        
+        <div class="flex gap-4 md:gap-6 md:absolute md:left-1/2 md:-translate-x-1/2 text-xs md:text-sm">
+            <button id="nav-game" class="text-sky-400 border-b-2 border-sky-400 pb-1 font-bold hover:text-sky-300 transition uppercase tracking-wider">🕹️ Arcade</button>
+            <button id="nav-dashboard" class="text-slate-400 border-b-2 border-transparent pb-1 font-bold hover:text-sky-300 transition uppercase tracking-wider">🖼️ Dashboard</button>
+            <button id="nav-swap" class="text-slate-400 border-b-2 border-transparent pb-1 font-bold hover:text-sky-300 transition uppercase tracking-wider">🔄 Swap</button>
+        </div>
+
+        <div>
+            <select id="network-selector" class="bg-slate-800 text-sky-400 border border-sky-500/50 rounded-lg px-3 py-2 text-xs font-bold outline-none cursor-pointer hover:bg-slate-700 transition shadow-lg shadow-sky-500/20">
+                <option value="arc">🌐 ARC Testnet</option>
+                <option value="base">🔵 Base Mainnet</option>
+            </select>
+        </div>
+    </nav>
+
+    <div id="view-game" class="w-full flex justify-center px-4">
+        <div class="glass-panel p-5 rounded-3xl w-full max-w-lg text-center relative overflow-hidden">
+            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-indigo-600 rounded-full blur-3xl opacity-20 pointer-events-none"></div>
+
+            <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-400 mb-1">🚀 ARC Arcade</h1>
+            <p id="network-subtitle" class="mono text-xs text-slate-400 mb-6 tracking-widest uppercase">Web3 Play-to-Mint Testnet</p>
+            
+            <div id="balance-container" class="hidden bg-slate-900 border border-emerald-500/30 rounded-xl p-4 mb-6 flex justify-center items-center">
+                <span class="text-slate-300 font-bold text-lg mr-4">Credits:</span>
+                <div class="flex items-center gap-2">
+                    <span id="credit-display" class="text-3xl font-bold text-emerald-400 drop-shadow-md">0</span>
+                    <span class="text-2xl">🪙</span>
+                </div>
+            </div>
+
+            <div class="mb-6 relative">
+                <canvas id="gameCanvas" width="300" height="350"></canvas>
+                
+                <div id="game-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/60 rounded-xl">
+                    <p class="text-white font-bold mb-2 text-lg drop-shadow-md">Ready for takeoff?</p>
+                    <p class="text-slate-300 text-xs mono mb-4">Insert 1 🪙 to start</p>
+                    <p class="text-sky-400 text-[10px] mono uppercase tracking-tighter">⬅️ ➡️ Move | SPACE / 🔥 Shoot</p>
+                </div>
+            </div>
+
+            <div id="mobile-controls" class="sm:hidden flex justify-between gap-4 mb-4 w-full">
+                <div class="flex gap-2 w-3/5">
+                    <button id="btn-left" class="bg-slate-700 hover:bg-slate-600 text-white p-3 rounded-xl flex-1 text-2xl active:bg-sky-500 transition select-none touch-manipulation">⬅️</button>
+                    <button id="btn-right" class="bg-slate-700 hover:bg-slate-600 text-white p-3 rounded-xl flex-1 text-2xl active:bg-sky-500 transition select-none touch-manipulation">➡️</button>
+                </div>
+                
+                <button id="btn-shoot" class="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-xl w-2/5 text-2xl active:bg-indigo-400 transition shadow-lg shadow-indigo-500/30 select-none touch-manipulation">🔥</button>
+            </div>
+
+            <button id="connect-btn" class="w-full bg-slate-800 hover:bg-slate-700 border border-indigo-500 text-white font-bold py-4 px-4 rounded-xl transition flex items-center justify-center gap-2 mb-4 shadow-lg shadow-indigo-500/20">
+                🦊 Connect MetaMask
+            </button>
+
+            <button id="deposit-btn" class="hidden w-full bg-slate-700 hover:bg-slate-600 border border-emerald-500 text-emerald-400 font-bold py-3 px-4 rounded-xl transition items-center justify-center gap-2 mb-4">
+                💳 Buy 10 Credits
+            </button>
+
+            <div id="action-buttons" class="hidden flex-col gap-3 mb-4 w-full">
+                <button id="play-btn" class="w-full bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold py-4 px-4 rounded-xl transition shadow-lg shadow-sky-500/30 text-lg uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed">
+                    START MISSION (1 🪙)
+                </button>
+            </div>
+
+            <p id="status-msg" class="mono text-xs text-sky-400 mt-4 h-4"></p>
+        </div>
+    </div>
+
+    <div id="view-dashboard" class="hidden w-full flex justify-center px-4">
+        <div class="glass-panel p-8 rounded-3xl w-full max-w-3xl text-center relative overflow-hidden">
+            <h2 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-400 mb-2">🖼️ Your Collection</h2>
+            <p class="mono text-xs text-slate-400 mb-8 tracking-widest uppercase">NFTs synced with the blockchain</p>
+            
+            <div id="nft-grid" class="flex flex-wrap justify-center gap-6 min-h-[200px] items-center">
+                <p class="text-slate-400">Connect MetaMask to view your collection.</p>
+            </div>
+            
+            <button id="refresh-dashboard-btn" class="hidden mt-8 mx-auto bg-slate-800 hover:bg-slate-700 border border-sky-500 text-sky-400 font-bold py-2 px-6 rounded-xl transition items-center justify-center gap-2">
+                🔄 Refresh
+            </button>
+        </div>
+    </div>
+
+    <div id="view-swap" class="hidden w-full flex justify-center px-4">
+        <div class="glass-panel p-8 rounded-3xl w-full max-w-lg text-center relative overflow-hidden">
+            <h2 id="swap-title" class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400 mb-2">🔄 DEX Swap</h2>
+            <p class="mono text-xs text-slate-400 mb-8 tracking-widest uppercase">Instant Liquidity</p>
+
+            <p id="swap-desc" class="text-slate-300 mb-6 text-sm">Instantly swap your "ARC Mega Winner" NFT for <span id="swap-desc-curr">USDC</span> directly to your wallet.</p>
+            
+            <div class="bg-slate-900 border border-slate-700 rounded-xl p-6 mb-6 flex justify-between items-center relative shadow-inner">
+                <div class="text-left w-1/3">
+                    <p class="text-slate-400 text-[10px] uppercase tracking-widest mb-1">You burn</p>
+                    <p class="text-lg font-bold text-white flex items-center gap-2">1x NFT <span class="text-xs">🖼️</span></p>
+                </div>
+                
+                <div class="text-2xl text-emerald-500 w-1/3 text-center">➡️</div>
+                
+                <div class="text-right w-1/3">
+                    <p class="text-slate-400 text-[10px] uppercase tracking-widest mb-1">You receive</p>
+                    <p class="text-lg font-bold text-emerald-400 flex items-center justify-end gap-2"><span id="swap-receive-val">1.00</span> <span id="swap-receive-curr" class="text-xs">USDC</span></p>
+                </div>
+            </div>
+
+            <button id="execute-swap-btn" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold py-4 px-4 rounded-xl transition shadow-lg shadow-emerald-500/30 text-lg uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed">
+                Approve & Swap
+            </button>
+            <p id="swap-status" class="mono text-xs text-sky-400 mt-4 h-4"></p>
+        </div>
+    </div>
+
+    <div id="nft-modal" class="hidden fixed inset-0 bg-slate-900/98 backdrop-blur-xl flex flex-col items-center justify-center p-6 z-50">
+        <h3 class="text-amber-400 font-bold text-2xl mb-6 drop-shadow-[0_0_15px_rgba(251,191,36,0.8)] uppercase tracking-widest text-center">🏆 Mission Accomplished!</h3>
+        <div class="nft-card relative rounded-2xl overflow-hidden mb-8 shadow-[0_0_60px_rgba(251,191,36,0.4)] border-2 border-amber-400/80 bg-slate-900" style="width: 240px; height: 340px; display: block;">
+            <img src="nft.png" style="width: 100%; height: 100%; object-fit: cover;" alt="ARC Legendary NFT">
+            <div class="holo-sweep absolute top-0 bottom-0 pointer-events-none z-20" style="width: 200%; transform: skewX(-20deg);"></div>
+        </div>
+        <button id="mint-btn" class="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-bold py-4 px-6 rounded-xl text-lg transition shadow-[0_0_20px_rgba(249,115,22,0.4)] w-full max-w-xs tracking-widest uppercase">
+            Mint my NFT
+        </button>
+    </div>
+
+    <script>
+        // === NETWORK CONFIGURATIONS ===
+        const networks = {
+            arc: {
+                chainId: '0x4CEF52', 
+                name: 'ARC Testnet',
+                currency: 'USDC',
+                depositAmount: "1.0", 
+                nftContract: "0xC04DCc83D768b8cCa4fda77283cF5608CF77FEA0", 
+                actionContract: "0x93FC5cb88E77bAdf3C964B358A1ae426e229A1E8", 
+                swapFunction: "swapNFTForUSDC",
+                isMainnet: false,
+                hasSwap: true,          
+                isFreeToPlay: false     
+            },
+            base: {
+                chainId: '0x2105', 
+                name: 'Base Mainnet',
+                currency: 'ETH',
+                depositAmount: "0", 
+                nftContract: "0xfD1e87A1fc200b034cfD88F254B8b267f7B8F018", 
+                actionContract: "0x1e970b9f120b539c2ED9A6e16729b54BebAFb977", 
+                swapFunction: null,
+                isMainnet: true,
+                hasSwap: true,  
+                isFreeToPlay: true      
+            }
+        };
+
+        let currentNetworkKey = 'arc'; 
+
+        // === DOM ELEMENTS ===
+        const connectBtn = document.getElementById('connect-btn');
+        const depositBtn = document.getElementById('deposit-btn');
+        const actionButtons = document.getElementById('action-buttons');
+        const playBtn = document.getElementById('play-btn');
+        const statusMsg = document.getElementById('status-msg');
+        const creditDisplay = document.getElementById('credit-display');
+        const balanceContainer = document.getElementById('balance-container');
+        const nftModal = document.getElementById('nft-modal');
+        const mintBtn = document.getElementById('mint-btn');
+        const gameOverlay = document.getElementById('game-overlay');
+        const networkSelector = document.getElementById('network-selector');
+
+        const netSubtitle = document.getElementById('network-subtitle');
+        const swapTitle = document.getElementById('swap-title');
+        const swapDesc = document.getElementById('swap-desc');
+        const swapDescCurr = document.getElementById('swap-desc-curr');
+        const swapReceiveVal = document.getElementById('swap-receive-val');
+        const swapReceiveCurr = document.getElementById('swap-receive-curr');
+
+        const views = {
+            game: document.getElementById('view-game'),
+            dashboard: document.getElementById('view-dashboard'),
+            swap: document.getElementById('view-swap')
+        };
+        const navs = {
+            game: document.getElementById('nav-game'),
+            dashboard: document.getElementById('nav-dashboard'),
+            swap: document.getElementById('nav-swap')
+        };
+
+        const nftGrid = document.getElementById('nft-grid');
+        const refreshDashboardBtn = document.getElementById('refresh-dashboard-btn');
+        const executeSwapBtn = document.getElementById('execute-swap-btn');
+        const swapStatus = document.getElementById('swap-status');
+
+        let userAddress = null;
+
+        // === DÉTECTION INTELLIGENTE DE L'ENVIRONNEMENT BASE ===
+        if (typeof window.ethereum !== 'undefined') {
+            // Si le joueur est sur le Coinbase Wallet ou si son portefeuille est déjà réglé sur le réseau Base
+            if (window.ethereum.isCoinbaseWallet || window.ethereum.chainId === '0x2105' || window.ethereum.chainId === '8453') {
+                currentNetworkKey = 'base';
+            }
+        }
+        
+        // Mise à jour visuelle du menu déroulant
+        networkSelector.value = currentNetworkKey;
+
+
+        // === GESTION DYNAMIQUE DES CRÉDITS PAR RÉSEAU ===
+        let credits = 0;
+
+        function loadCredits() {
+            credits = parseInt(localStorage.getItem(`arc_credits_${currentNetworkKey}`)) || 0;
+        }
+
+        function saveCredits() {
+            localStorage.setItem(`arc_credits_${currentNetworkKey}`, credits);
+        }
+
+        // Chargement initial des crédits pour le réseau détecté
+        loadCredits();
+
+        // ABIs combinées
+        const nftABI = [
+            "function mint(address to) public",
+            "function balanceOf(address owner) view returns (uint256)",
+            "function ownerOf(uint256 tokenId) view returns (address)", 
+            "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+            "function approve(address to, uint256 tokenId) public",
+            "function transferFrom(address from, address to, uint256 tokenId) public" 
+        ];
+
+        const swapABI = [
+            "function swapNFTForUSDC(uint256 tokenId) external"
+        ];
+
+        const baseArcadeABI = [
+            "function claimFreeCredits() public"
+        ];
+
+        // === NETWORK SWITCH LOGIC ===
+        function updateNetworkUI() {
+            const conf = networks[currentNetworkKey];
+            netSubtitle.innerText = `Web3 Play-to-Mint ${conf.isMainnet ? 'Mainnet' : 'Testnet'}`;
+            
+            if (conf.hasSwap) {
+                navs.swap.classList.remove('hidden');
+                
+                // Adaptation dynamique de l'interface SWAP vs BURN
+                if (conf.isMainnet) {
+                    swapTitle.innerHTML = '🔥 Burn NFT';
+                    swapTitle.className = 'text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-400 mb-2';
+                    swapDesc.innerHTML = 'Permanently destroy your "ARC Mega Winner" NFT. (Gas fee only)';
+                    swapReceiveVal.innerText = "0";
+                    swapReceiveCurr.innerText = conf.currency;
+                    
+                    executeSwapBtn.innerText = "Burn NFT";
+                    executeSwapBtn.className = "w-full bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-400 hover:to-orange-500 text-white font-bold py-4 px-4 rounded-xl transition shadow-lg shadow-red-500/30 text-lg uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed";
+                } else {
+                    swapTitle.innerHTML = '🔄 DEX Swap';
+                    swapTitle.className = 'text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400 mb-2';
+                    swapDesc.innerHTML = `Instantly swap your "ARC Mega Winner" NFT for ${conf.currency} directly to your wallet.`;
+                    swapReceiveVal.innerText = conf.depositAmount;
+                    swapReceiveCurr.innerText = conf.currency;
+                    
+                    executeSwapBtn.innerText = "Approve & Swap";
+                    executeSwapBtn.className = "w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold py-4 px-4 rounded-xl transition shadow-lg shadow-emerald-500/30 text-lg uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed";
+                }
+            } else {
+                navs.swap.classList.add('hidden');
+                if (!views.swap.classList.contains('hidden')) {
+                    switchView('game');
+                }
+            }
+
+            if (conf.isFreeToPlay) {
+                depositBtn.innerText = "🎁 Claim 10 Credits (Gas fee only)";
+            } else {
+                depositBtn.innerText = `💳 Buy 10 Credits (${conf.depositAmount} ${conf.currency})`;
+            }
+
+            statusMsg.innerText = "";
+            swapStatus.innerText = "";
+        }
+
+        async function switchMetaMaskNetwork() {
+            if (!window.ethereum || !userAddress) return;
+            const conf = networks[currentNetworkKey];
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: conf.chainId }],
+                });
+            } catch (error) {
+                console.error("Veuillez ajouter le réseau dans MetaMask manuellement si besoin.", error);
+            }
+        }
+
+        networkSelector.addEventListener('change', async (e) => {
+            // On sauvegarde l'ancien réseau avant de basculer
+            saveCredits(); 
+            
+            currentNetworkKey = e.target.value;
+            
+            // On charge les crédits du nouveau réseau
+            loadCredits(); 
+            
+            updateNetworkUI();
+            updateUI(); 
+            
+            await switchMetaMaskNetwork();
+            if(!views.dashboard.classList.contains('hidden')) loadDashboard();
+        });
+
+        updateNetworkUI();
+
+        // === TAB LOGIC (NAVIGATION) ===
+        function switchView(target) {
+            Object.keys(views).forEach(key => {
+                views[key].classList.add('hidden');
+                navs[key].classList.remove('text-sky-400', 'border-sky-400');
+                navs[key].classList.add('text-slate-400', 'border-transparent');
+            });
+            views[target].classList.remove('hidden');
+            navs[target].classList.add('text-sky-400', 'border-sky-400');
+            navs[target].classList.remove('text-slate-400', 'border-transparent');
+
+            if (target === 'dashboard' && userAddress) {
+                loadDashboard();
+            }
+        }
+
+        navs.game.addEventListener('click', () => switchView('game'));
+        navs.dashboard.addEventListener('click', () => switchView('dashboard'));
+        navs.swap.addEventListener('click', () => switchView('swap'));
+
+        // === GAME ENGINE ===
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let gameActive = false;
+        const TARGET_SCORE = 20; 
+        let gameScore = 0;
+        
+        let player = { x: 135, y: 280, targetY: 280, size: 30 };
+        let bullets = []; let enemies = []; let coins = []; let stars = [];
+
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < 50; i++) {
+                stars.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, size: Math.random() * 2, speed: 0.5 + Math.random() * 2 });
+            }
+        }
+        initStars();
+
+        let keys = { ArrowLeft: false, ArrowRight: false, Space: false };
+        let lastShot = 0;
+
+        window.addEventListener('keydown', (e) => {
+            if(e.code === 'ArrowLeft') keys.ArrowLeft = true;
+            if(e.code === 'ArrowRight') keys.ArrowRight = true;
+            if(e.code === 'Space') { keys.Space = true; e.preventDefault(); }
+        });
+        window.addEventListener('keyup', (e) => {
+            if(e.code === 'ArrowLeft') keys.ArrowLeft = false;
+            if(e.code === 'ArrowRight') keys.ArrowRight = false;
+            if(e.code === 'Space') keys.Space = false;
+        });
+
+        const btnLeft = document.getElementById('btn-left');
+        const btnRight = document.getElementById('btn-right');
+        const btnShoot = document.getElementById('btn-shoot');
+
+        const setupTouchControl = (btn, keyName) => {
+            if (!btn) return;
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyName] = true; });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; });
+            btn.addEventListener('mousedown', (e) => { e.preventDefault(); keys[keyName] = true; });
+            btn.addEventListener('mouseup', (e) => { e.preventDefault(); keys[keyName] = false; });
+            btn.addEventListener('mouseleave', (e) => { e.preventDefault(); keys[keyName] = false; });
+        };
+
+        setupTouchControl(btnLeft, 'ArrowLeft');
+        setupTouchControl(btnRight, 'ArrowRight');
+        setupTouchControl(btnShoot, 'Space');
+
+        function initGame() {
+            gameScore = 0; player.x = 135; player.y = 280; player.targetY = 280; 
+            bullets = []; enemies = []; coins = [];
+            gameActive = true;
+            gameOverlay.classList.add('hidden');
+            playBtn.disabled = true; 
+            statusMsg.style.color = "#38BDF8";
+            statusMsg.innerText = "🚀 In hyperspace! Collect 20 coins.";
+        }
+
+        function endGame(won) {
+            gameActive = false;
+            gameOverlay.classList.remove('hidden');
+            if (won) {
+                gameOverlay.innerHTML = `<p class="text-emerald-400 font-bold text-xl">OBJECTIVE REACHED!</p>`;
+                statusMsg.style.color = "#10B981";
+                statusMsg.innerText = "✨ Sector secured. NFT available!";
+                credits += 5; 
+                updateUI(); 
+                fireCoins();
+                setTimeout(() => { nftModal.classList.remove('hidden'); nftModal.classList.add('flex'); }, 1000);
+            } else {
+                gameOverlay.innerHTML = `<p class="text-red-500 font-bold text-xl mb-1">HULL DESTROYED 💥</p><p class="text-slate-400 text-xs">Score: ${gameScore}</p>`;
+                statusMsg.style.color = "#EF4444";
+                statusMsg.innerText = "Repairs needed... Try again!";
+                player.targetY = 280; 
+                updateUI();
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "white";
+            stars.forEach(s => {
+                ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2); ctx.fill();
+                s.y += s.speed; if (s.y > canvas.height) s.y = 0;
+            });
+            if (gameActive) player.targetY = 280 - (gameScore / TARGET_SCORE) * 230;
+            player.y += (player.targetY - player.y) * 0.05;
+
+            if (!gameActive && Math.abs(player.y - 280) < 1) { requestAnimationFrame(draw); return; }
+
+            if (keys.ArrowLeft && player.x > 0) player.x -= 4;
+            if (keys.ArrowRight && player.x < canvas.width - player.size) player.x += 4;
+            if (keys.Space && Date.now() - lastShot > 250 && gameActive) { bullets.push({ x: player.x + 10, y: player.y }); lastShot = Date.now(); }
+
+            ctx.save(); ctx.font = '28px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.save();
+            let flameY = 41 + Math.sin(Date.now() / 80) * 2; 
+            ctx.translate(player.x + 15, player.y + flameY); ctx.rotate(Math.PI); ctx.fillText('🔥', 0, 0); ctx.restore();
+            ctx.translate(player.x + 15, player.y + 15); ctx.rotate(-45 * Math.PI / 180); ctx.fillText('🚀', 0, 0); ctx.restore();
+
+            if (!gameActive) { requestAnimationFrame(draw); return; }
+
+            bullets.forEach((b, index) => {
+                b.y -= 8; ctx.fillStyle = '#22D3EE'; ctx.shadowBlur = 10; ctx.shadowColor = '#22D3EE';
+                ctx.fillRect(b.x + 4, b.y, 3, 15); ctx.shadowBlur = 0;
+                if (b.y < 0) bullets.splice(index, 1);
+            });
+
+            if (Math.random() < 0.04) enemies.push({ x: Math.random() * (canvas.width - 30), y: -30 });
+            enemies.forEach((e, i) => {
+                e.y += 2.2; ctx.font = '28px Arial'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+                ctx.fillText('👾', e.x, e.y + 25);
+                bullets.forEach((b, bi) => {
+                    if (b.x > e.x - 5 && b.x < e.x + 25 && b.y > e.y && b.y < e.y + 30) {
+                        coins.push({ x: e.x, y: e.y }); bullets.splice(bi, 1); enemies.splice(i, 1);
+                    }
+                });
+                if (e.y + 15 > player.y && e.y < player.y + 20 && e.x + 15 > player.x && e.x < player.x + 20) endGame(false);
+                if (e.y > canvas.height) enemies.splice(i, 1);
+            });
+
+            coins.forEach((c, i) => {
+                c.y += 2.5; ctx.fillText('🪙', c.x, c.y + 25);
+                if (c.y + 20 > player.y && c.y < player.y + 20 && c.x + 20 > player.x && c.x < player.x + 20) {
+                    coins.splice(i, 1); gameScore++; if (gameScore >= TARGET_SCORE) endGame(true);
+                } else if (c.y > canvas.height) coins.splice(i, i);
+            });
+
+            ctx.fillStyle = '#FBBF24'; ctx.font = 'bold 14px Courier New'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+            ctx.fillText(`TARGETS: ${gameScore}/${TARGET_SCORE}`, 10, 25);
+            const progress = (gameScore / TARGET_SCORE) * 100;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'; ctx.fillRect(10, 35, 100, 4);
+            ctx.fillStyle = '#10B981'; ctx.fillRect(10, 35, progress, 4);
+
+            requestAnimationFrame(draw);
+        }
+        draw(); 
+
+        // === WEB3 FUNCTIONS ===
+        function updateUI() {
+            // SAUVEGARDE LOCALE DYNAMIQUE
+            saveCredits();
+            
+            creditDisplay.innerText = credits;
+            if (userAddress) actionButtons.classList.remove('hidden'); actionButtons.classList.add('flex');
+            if (!gameActive) {
+                if (credits > 0) { playBtn.disabled = false; depositBtn.classList.add('hidden'); }
+                else if (userAddress) { playBtn.disabled = true; depositBtn.classList.remove('hidden'); depositBtn.classList.add('flex'); }
+            }
+        }
+
+        function fireCoins() { confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#38BDF8', '#FBBF24'], zIndex: 9999 }); }
+
+        playBtn.addEventListener('click', () => {
+            if (credits < 1 || gameActive) return;
+            credits -= 1; updateUI(); initGame();
+        });
+
+        connectBtn.addEventListener('click', async () => {
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    statusMsg.style.color = "#38BDF8"; statusMsg.innerText = "Requesting access...";
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    userAddress = accounts[0];
+                    connectBtn.innerText = "🟢 " + userAddress.substring(0, 6) + "...";
+                    connectBtn.classList.replace('bg-slate-800', 'bg-emerald-900/50');
+                    balanceContainer.classList.remove('hidden');
+                    
+                    updateUI(); 
+                    if (credits === 0) {
+                        const msgTxt = networks[currentNetworkKey].isFreeToPlay ? "Claim credits to play." : `Deposit ${networks[currentNetworkKey].currency} to play.`;
+                        statusMsg.innerText = `Welcome! ${msgTxt}`;
+                    }
+                    
+                    await switchMetaMaskNetwork();
+                    if (!views.dashboard.classList.contains('hidden')) loadDashboard();
+
+                } catch (e) { statusMsg.innerText = "❌ Connection refused."; }
+            }
+        });
+
+        // === GESTION INTELLIGENTE DU DÉPÔT / CLAIM ===
+        depositBtn.addEventListener('click', async () => {
+            const conf = networks[currentNetworkKey];
+            try {
+                depositBtn.disabled = true; 
+                depositBtn.innerText = "⏳ WAITING FOR METAMASK...";
+                statusMsg.style.color = "#38BDF8";
+                statusMsg.innerText = "Please confirm the transaction in MetaMask...";
+
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                const signer = await provider.getSigner();
+                
+                let tx;
+                if (conf.isFreeToPlay) {
+                    const arcadeContract = new ethers.Contract(conf.actionContract, baseArcadeABI, signer);
+                    const builderSuffix = "0x62635f30303361366d736d0b0080218021802180218021802180218021";
+                    const txData = arcadeContract.interface.encodeFunctionData("claimFreeCredits");
+                    const finalData = txData + builderSuffix.substring(2);
+                    tx = await signer.sendTransaction({
+                        to: conf.actionContract,
+                        data: finalData
+                    });
+                } else {
+                    tx = await signer.sendTransaction({ 
+                        to: conf.actionContract, 
+                        value: ethers.parseEther(conf.depositAmount) 
+                    });
+                }
+                
+                statusMsg.innerText = `⏳ Validating transaction on ${conf.name}...`;
+                await tx.wait(); 
+                
+                credits += 10; 
+                updateUI();
+                statusMsg.style.color = "#10B981"; 
+                statusMsg.innerText = "✅ Transaction confirmed! 10 Credits added.";
+            } catch (e) {
+                console.error(e);
+                statusMsg.style.color = "#EF4444"; 
+                statusMsg.innerText = "❌ Transaction cancelled or failed.";
+            } finally {
+                depositBtn.disabled = false; 
+                if (conf.isFreeToPlay) {
+                    depositBtn.innerText = "🎁 Claim 10 Credits (Gas fee only)";
+                } else {
+                    depositBtn.innerText = `💳 Buy 10 Credits (${conf.depositAmount} ${conf.currency})`;
+                }
+            }
+        });
+
+        // === MINT DYNAMIQUE ===
+        mintBtn.addEventListener('click', async () => {
+            const conf = networks[currentNetworkKey];
+            try {
+                mintBtn.disabled = true; mintBtn.innerText = "⏳ Signing...";
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                const signer = await provider.getSigner();
+                const nftContract = new ethers.Contract(conf.nftContract, nftABI, signer);
+                
+                const builderSuffix = "0x62635f30303361366d736d0b0080218021802180218021802180218021";
+                const txData = nftContract.interface.encodeFunctionData("mint", [userAddress]);
+                const finalData = txData + builderSuffix.substring(2);
+                
+                const tx = await signer.sendTransaction({
+                    to: conf.nftContract,
+                    data: finalData
+                });
+                
+                statusMsg.innerText = `⏳ Minting on ${conf.name}...`;
+                await tx.wait();
+                
+                nftModal.classList.add('hidden');
+                statusMsg.style.color = "#FBBF24"; statusMsg.innerText = "🎨 NFT added to your wallet!";
+                fireCoins();
+            } catch (e) {
+                mintBtn.disabled = false; statusMsg.innerText = "❌ Minting error.";
+            }
+        });
+
+        // ==============================================
+        // DASHBOARD LOGIC DYNAMIQUE
+        // ==============================================
+        refreshDashboardBtn.addEventListener('click', loadDashboard);
+
+        async function loadDashboard() {
+            if (!userAddress) {
+                nftGrid.innerHTML = '<p class="text-slate-400">Please connect MetaMask to see your NFTs.</p>';
+                return;
+            }
+
+            const conf = networks[currentNetworkKey];
+            try {
+                refreshDashboardBtn.classList.remove('hidden');
+                nftGrid.innerHTML = `<p class="text-sky-400 font-bold animate-pulse">⏳ Querying ${conf.name}...</p>`;
+                
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                const nftContract = new ethers.Contract(conf.nftContract, nftABI, provider);
+                
+                const balance = await nftContract.balanceOf(userAddress);
+                const count = Number(balance);
+
+                if (count > 0) {
+                    let html = '';
+                    for(let i=0; i<count; i++) {
+                        html += `
+                        <div class="nft-item bg-slate-800 p-3 rounded-2xl border border-slate-600 w-48 shadow-lg text-center">
+                            <img src="nft.png" class="w-full h-auto rounded-xl mb-3 border border-slate-700" alt="NFT">
+                            <p class="text-white font-bold text-sm tracking-wide">ARC Winner</p>
+                            <p class="text-sky-400 text-xs mono mt-1">Legendary Edition</p>
+                        </div>`;
+                    }
+                    nftGrid.innerHTML = html;
+                } else {
+                    nftGrid.innerHTML = '<p class="text-slate-400">Your collection is empty. Win a game to mint!</p>';
+                }
+            } catch (error) {
+                console.error(error);
+                nftGrid.innerHTML = '<p class="text-red-400">❌ Error reading the contract.</p>';
+            }
+        }
+
+        // ==============================================
+        // SWAP & BURN LOGIC DYNAMIQUE
+        // ==============================================
+        executeSwapBtn.addEventListener('click', async () => {
+            const conf = networks[currentNetworkKey];
+            if (!conf.hasSwap) return; 
+
+            if (!userAddress) {
+                swapStatus.style.color = "#EF4444"; swapStatus.innerText = "⚠️ Connect MetaMask first.";
+                return;
+            }
+
+            try {
+                executeSwapBtn.disabled = true;
+                swapStatus.style.color = "#38BDF8";
+                
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                const signer = await provider.getSigner();
+                
+                const nftContract = new ethers.Contract(conf.nftContract, nftABI, signer);
+                
+                swapStatus.innerText = "⏳ Step 1: Checking your inventory...";
+                
+                const balance = await nftContract.balanceOf(userAddress);
+                if (Number(balance) === 0) {
+                    swapStatus.style.color = "#EF4444";
+                    swapStatus.innerText = "❌ You do not own any NFTs.";
+                    executeSwapBtn.disabled = false;
+                    return;
+                }
+                
+                swapStatus.innerText = "⏳ Searching for NFT ID...";
+                const tokenIdToSwap = await nftContract.tokenOfOwnerByIndex(userAddress, 0);
+
+                if (conf.isMainnet) {
+                    // LOGIQUE BURN (BASE MAINNET)
+                    swapStatus.innerText = `⏳ Executing Burn for NFT #${tokenIdToSwap}...`;
+                    const deadAddress = "0x000000000000000000000000000000000000dEaD";
+                    const txBurn = await nftContract.transferFrom(userAddress, deadAddress, tokenIdToSwap);
+                    
+                    swapStatus.innerText = `⏳ Burning on ${conf.name}...`;
+                    await txBurn.wait(); 
+
+                    swapStatus.style.color = "#10B981";
+                    swapStatus.innerText = `✅ NFT Burned successfully!`;
+                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#EF4444', '#F97316'] });
+
+                } else {
+                    // LOGIQUE SWAP USDC (ARC TESTNET)
+                    const swapContract = new ethers.Contract(conf.actionContract, swapABI, signer);
+                    
+                    swapStatus.innerText = `⏳ Step 2: Authorizing NFT #${tokenIdToSwap} (1/2)...`;
+                    const txApprove = await nftContract.approve(conf.actionContract, tokenIdToSwap);
+                    await txApprove.wait(); 
+
+                    swapStatus.innerText = `⏳ Step 3: Executing Swap for NFT #${tokenIdToSwap} (2/2)...`;
+                    const txSwap = await swapContract.swapNFTForUSDC(tokenIdToSwap);
+                    
+                    swapStatus.innerText = `⏳ Processing on ${conf.name}...`;
+                    await txSwap.wait(); 
+
+                    swapStatus.style.color = "#10B981";
+                    swapStatus.innerText = `✅ Swap successful! ${conf.depositAmount} ${conf.currency} has been sent to your wallet.`;
+                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#10B981', '#34D399'] });
+                }
+                
+                loadDashboard();
+
+            } catch(e) {
+                console.error("Detailed error:", e);
+                swapStatus.style.color = "#EF4444";
+                
+                if (e.code === "ACTION_REJECTED") {
+                    swapStatus.innerText = "❌ Transaction rejected in MetaMask.";
+                } else {
+                    swapStatus.innerText = "❌ Transaction failed. Check the console (F12).";
+                }
+            } finally {
+                executeSwapBtn.disabled = false;
+            }
+        });
+
+        // ==============================================
+        // AUTO-RECONNEXION & INITIALISATION
+        // ==============================================
+        async function autoConnectMetaMask() {
+            // On affiche le solde sauvegardé même si le wallet n'est pas encore prêt
+            if (credits > 0) {
+                balanceContainer.classList.remove('hidden');
+                creditDisplay.innerText = credits;
+            }
+
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    // Demande silencieuse des comptes autorisés
+                    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                    
+                    if (accounts && accounts.length > 0) {
+                        userAddress = accounts[0];
+                        connectBtn.innerText = "🟢 " + userAddress.substring(0, 6) + "...";
+                        connectBtn.classList.replace('bg-slate-800', 'bg-emerald-900/50');
+                        balanceContainer.classList.remove('hidden');
+                        
+                        updateUI(); 
+                        
+                        // Si le joueur est sur l'onglet Dashboard, on charge ses NFTs
+                        if (!views.dashboard.classList.contains('hidden')) {
+                            loadDashboard();
+                        }
+                    }
+                } catch (e) {
+                    console.log("Erreur de reconnexion silencieuse :", e);
+                }
+            }
+        }
+
+        // On lance la fonction après une demi-seconde pour être sûr que MetaMask est bien réveillé
+        setTimeout(autoConnectMetaMask, 500);
+    </script>
+</body>
+</html>
