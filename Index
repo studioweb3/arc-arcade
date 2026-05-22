@@ -536,7 +536,9 @@
             if (typeof window.ethereum !== 'undefined') {
                 try {
                     statusMsg.style.color = "#38BDF8"; statusMsg.innerText = "Requesting access...";
-                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    const accounts = await window.ethereum.request({
+    method: "eth_accounts"
+});
                     userAddress = accounts[0];
                     connectBtn.innerText = "🟢 " + userAddress.substring(0, 6) + "...";
                     connectBtn.classList.replace('bg-slate-800', 'bg-emerald-900/50');
