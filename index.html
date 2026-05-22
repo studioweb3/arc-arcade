@@ -499,7 +499,7 @@
                 c.y += 2.5; ctx.fillText('🪙', c.x, c.y + 25);
                 if (c.y + 20 > player.y && c.y < player.y + 20 && c.x + 20 > player.x && c.x < player.x + 20) {
                     coins.splice(i, 1); gameScore++; if (gameScore >= TARGET_SCORE) endGame(true);
-                } else if (c.y > canvas.height) coins.splice(i, i);
+                } else if (c.y > canvas.height) coins.splice(i, 1);
             });
 
             ctx.fillStyle = '#FBBF24'; ctx.font = 'bold 14px Courier New'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
@@ -518,7 +518,10 @@
             saveCredits();
             
             creditDisplay.innerText = credits;
-            if (userAddress) actionButtons.classList.remove('hidden'); actionButtons.classList.add('flex');
+            if (userAddress) {
+    actionButtons.classList.remove('hidden');
+    actionButtons.classList.add('flex');
+                }
             if (!gameActive) {
                 if (credits > 0) { playBtn.disabled = false; depositBtn.classList.add('hidden'); }
                 else if (userAddress) { playBtn.disabled = true; depositBtn.classList.remove('hidden'); depositBtn.classList.add('flex'); }
@@ -531,13 +534,44 @@
             if (credits < 1 || gameActive) return;
             credits -= 1; updateUI(); initGame();
         });
+async function verifyCorrectNetwork() {
+    const conf = networks[currentNetworkKey];
 
+    if (!window.ethereum) return false;
+
+    const currentChain = await window.ethereum.request({
+        method: 'eth_chainId'
+    });
+
+    if (currentChain !== conf.chainId) {
+        try {
+            await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: conf.chainId }],
+            });
+
+            return true;
+
+        } catch (err) {
+            console.error(err);
+            return false;
+        }
+    }
+
+    return true;
+}
         connectBtn.addEventListener('click', async () => {
             if (typeof window.ethereum !== 'undefined') {
                 try {
                     statusMsg.style.color = "#38BDF8"; statusMsg.innerText = "Requesting access...";
                     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                     userAddress = accounts[0];
+                    const networkOk = await verifyCorrectNetwork();
+
+if (!networkOk) {
+    statusMsg.innerText = "❌ Wrong network.";
+    return;
+}
                     connectBtn.innerText = "🟢 " + userAddress.substring(0, 6) + "...";
                     connectBtn.classList.replace('bg-slate-800', 'bg-emerald-900/50');
                     balanceContainer.classList.remove('hidden');
@@ -570,9 +604,7 @@
                 let tx;
                 if (conf.isFreeToPlay) {
                     const arcadeContract = new ethers.Contract(conf.actionContract, baseArcadeABI, signer);
-                    const builderSuffix = "0x62635f30303361366d736d0b0080218021802180218021802180218021";
                     const txData = arcadeContract.interface.encodeFunctionData("claimFreeCredits");
-                    const finalData = txData + builderSuffix.substring(2);
                     tx = await signer.sendTransaction({
                         to: conf.actionContract,
                         data: finalData
@@ -606,34 +638,44 @@
         });
 
         // === MINT DYNAMIQUE ===
-        mintBtn.addEventListener('click', async () => {
-            const conf = networks[currentNetworkKey];
-            try {
-                mintBtn.disabled = true; mintBtn.innerText = "⏳ Signing...";
-                const provider = new ethers.BrowserProvider(window.ethereum);
-                const signer = await provider.getSigner();
-                const nftContract = new ethers.Contract(conf.nftContract, nftABI, signer);
-                
-                const builderSuffix = "0x62635f30303361366d736d0b0080218021802180218021802180218021";
-                const txData = nftContract.interface.encodeFunctionData("mint", [userAddress]);
-                const finalData = txData + builderSuffix.substring(2);
-                
-                const tx = await signer.sendTransaction({
-                    to: conf.nftContract,
-                    data: finalData
-                });
-                
-                statusMsg.innerText = `⏳ Minting on ${conf.name}...`;
-                await tx.wait();
-                
-                nftModal.classList.add('hidden');
-                statusMsg.style.color = "#FBBF24"; statusMsg.innerText = "🎨 NFT added to your wallet!";
-                fireCoins();
-            } catch (e) {
-                mintBtn.disabled = false; statusMsg.innerText = "❌ Minting error.";
-            }
-        });
+       mintBtn.addEventListener('click', async () => {
+    const conf = networks[currentNetworkKey];
 
+    try {
+        mintBtn.disabled = true;
+        mintBtn.innerText = "⏳ Minting...";
+
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+
+        const nftContract = new ethers.Contract(
+            conf.nftContract,
+            nftABI,
+            signer
+        );
+
+        const tx = await nftContract.mint(userAddress);
+
+        statusMsg.innerText = `⏳ Minting on ${conf.name}...`;
+
+        await tx.wait();
+
+        nftModal.classList.add('hidden');
+
+        statusMsg.style.color = "#FBBF24";
+        statusMsg.innerText = "🎨 NFT added to your wallet!";
+
+        fireCoins();
+
+    } catch (e) {
+        console.error(e);
+
+        mintBtn.disabled = false;
+        mintBtn.innerText = "Mint my NFT";
+
+        statusMsg.innerText = "❌ Minting error.";
+    }
+});
         // ==============================================
         // DASHBOARD LOGIC DYNAMIQUE
         // ==============================================
@@ -794,6 +836,44 @@
 
         // On lance la fonction après une demi-seconde pour être sûr que MetaMask est bien réveillé
         setTimeout(autoConnectMetaMask, 500);
+        mintBtn.addEventListener('click', async () => {
+    const conf = networks[currentNetworkKey];
+
+    try {
+        mintBtn.disabled = true;
+        mintBtn.innerText = "⏳ Minting...";
+
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+
+        const nftContract = new ethers.Contract(
+            conf.nftContract,
+            nftABI,
+            signer
+        );
+
+        const tx = await nftContract.mint(userAddress);
+
+        statusMsg.innerText = `⏳ Minting on ${conf.name}...`;
+
+        await tx.wait();
+
+        nftModal.classList.add('hidden');
+
+        statusMsg.style.color = "#FBBF24";
+        statusMsg.innerText = "🎨 NFT added to your wallet!";
+
+        fireCoins();
+
+    } catch (e) {
+        console.error(e);
+
+        mintBtn.disabled = false;
+        mintBtn.innerText = "Mint my NFT";
+
+        statusMsg.innerText = "❌ Minting error.";
+    }
+});
     </script>
 </body>
 </html>
