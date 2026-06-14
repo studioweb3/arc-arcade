@@ -427,9 +427,10 @@ export default function App() {
             // Déplacements joueur
             if (state.keys.ArrowLeft && state.player.x > 0) state.player.x -= 4;
             if (state.keys.ArrowRight && state.player.x < canvas.width - state.player.size) state.player.x += 4;
-            if (state.keys.Space && Date.now() - state.lastShot > 250 && gameActive) { 
-                state.bullets.push({ x: state.player.x + 10, y: state.player.y }); 
-                state.lastShot = Date.now(); 
+          // Tir automatique : plus besoin d'appuyer sur Espace ou sur le bouton
+            if (Date.now() - state.lastShot > 250 && gameActive) { 
+            state.bullets.push({ x: state.player.x + 10, y: state.player.y }); 
+            state.lastShot = Date.now(); 
             }
 
             // Dessiner joueur
@@ -599,39 +600,29 @@ export default function App() {
                                 <p className="text-white font-bold mb-2 text-lg drop-shadow-md">Ready for takeoff?</p>
                             )}
                             <p className="text-slate-300 text-xs mono mb-4">Insert 1 🪙 to start</p>
-                            <p className="text-sky-400 text-[10px] mono uppercase tracking-tighter">⬅️ ➡️ Move | SPACE / 🔥 Shoot</p>
+                            <p className="text-sky-400 text-[10px] mono uppercase tracking-tighter">⬅️ ➡️ Move | 🚀 Auto-Fire</p>
                         </div>
                         )}
                     </div>
 
-                    <div className="sm:hidden flex justify-between gap-4 mb-4 w-full">
-                        <div className="flex gap-2 w-3/5">
-                            <button 
-                                onTouchStart={(e) => { e.preventDefault(); gameState.current.keys.ArrowLeft = true; }}
-                                onTouchEnd={(e) => { e.preventDefault(); gameState.current.keys.ArrowLeft = false; }}
-                                onMouseDown={(e) => { e.preventDefault(); gameState.current.keys.ArrowLeft = true; }}
-                                onMouseUp={(e) => { e.preventDefault(); gameState.current.keys.ArrowLeft = false; }}
-                                onMouseLeave={(e) => { e.preventDefault(); gameState.current.keys.ArrowLeft = false; }}
-                                className="bg-slate-700 hover:bg-slate-600 text-white p-3 rounded-xl flex-1 text-2xl active:bg-sky-500 transition select-none touch-manipulation"
-                            >⬅️</button>
-                            <button 
-                                onTouchStart={(e) => { e.preventDefault(); gameState.current.keys.ArrowRight = true; }}
-                                onTouchEnd={(e) => { e.preventDefault(); gameState.current.keys.ArrowRight = false; }}
-                                onMouseDown={(e) => { e.preventDefault(); gameState.current.keys.ArrowRight = true; }}
-                                onMouseUp={(e) => { e.preventDefault(); gameState.current.keys.ArrowRight = false; }}
-                                onMouseLeave={(e) => { e.preventDefault(); gameState.current.keys.ArrowRight = false; }}
-                                className="bg-slate-700 hover:bg-slate-600 text-white p-3 rounded-xl flex-1 text-2xl active:bg-sky-500 transition select-none touch-manipulation"
-                            >➡️</button>
-                        </div>
-                        <button 
-                            onTouchStart={(e) => { e.preventDefault(); gameState.current.keys.Space = true; }}
-                            onTouchEnd={(e) => { e.preventDefault(); gameState.current.keys.Space = false; }}
-                            onMouseDown={(e) => { e.preventDefault(); gameState.current.keys.Space = true; }}
-                            onMouseUp={(e) => { e.preventDefault(); gameState.current.keys.Space = false; }}
-                            onMouseLeave={(e) => { e.preventDefault(); gameState.current.keys.Space = false; }}
-                            className="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-xl w-2/5 text-2xl active:bg-indigo-400 transition shadow-lg shadow-indigo-500/30 select-none touch-manipulation"
-                        >🔥</button>
-                    </div>
+                    <div className="sm:hidden flex justify-between gap-3 mb-4 w-full">
+    <button 
+        onTouchStart={(e) => { e.preventDefault(); gameState.current.keys.ArrowLeft = true; }}
+        onTouchEnd={(e) => { e.preventDefault(); gameState.current.keys.ArrowLeft = false; }}
+        onMouseDown={(e) => { e.preventDefault(); gameState.current.keys.ArrowLeft = true; }}
+        onMouseUp={(e) => { e.preventDefault(); gameState.current.keys.ArrowLeft = false; }}
+        onMouseLeave={(e) => { e.preventDefault(); gameState.current.keys.ArrowLeft = false; }}
+        className="bg-slate-700 hover:bg-slate-600 text-white p-4 rounded-xl flex-1 text-3xl active:bg-sky-500 transition select-none touch-manipulation shadow-lg"
+    >⬅️</button>
+    <button 
+        onTouchStart={(e) => { e.preventDefault(); gameState.current.keys.ArrowRight = true; }}
+        onTouchEnd={(e) => { e.preventDefault(); gameState.current.keys.ArrowRight = false; }}
+        onMouseDown={(e) => { e.preventDefault(); gameState.current.keys.ArrowRight = true; }}
+        onMouseUp={(e) => { e.preventDefault(); gameState.current.keys.ArrowRight = false; }}
+        onMouseLeave={(e) => { e.preventDefault(); gameState.current.keys.ArrowRight = false; }}
+        className="bg-slate-700 hover:bg-slate-600 text-white p-4 rounded-xl flex-1 text-3xl active:bg-sky-500 transition select-none touch-manipulation shadow-lg"
+    >➡️</button>
+</div>
 
                     {!userAddress && (
                         <button onClick={handleConnect} className="w-full bg-slate-800 hover:bg-slate-700 border border-indigo-500 text-white font-bold py-4 px-4 rounded-xl transition flex items-center justify-center gap-2 mb-4 shadow-lg shadow-indigo-500/20">
